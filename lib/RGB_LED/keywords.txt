@@ -1,0 +1,4 @@
+RGB_LED	KEYWORD1
+led_set	KEYWORD2
+invert	KEYWORD2
+get_pin	KEYWORD2
