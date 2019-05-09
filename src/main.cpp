@@ -13,13 +13,23 @@
 #include <RGB_LED.h>
 
 
+//TODO: Move page to SPIFFS
+//TODO: Rewrite update on new core
+//TODO: Test network errors on new core
+//TODO: Comment code
+//TODO: Split SC class to SC class and web interface class
+//TODO: Add button
+
+
 //  Defined for debug (Serial)
 #define DEBUG_N(x) Serial.println(x);
 #ifndef DEBUG_N
     #define DEBUG_N(x)
     #define DEBUG_S(x)
+    #define FLUSH()
 #else
     #define DEBUG_S(x) Serial.print(x);
+    #define FLUSH() Serial.flush();
     #define DEBUG
     #define DEBUG_DELIMETER "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
 #endif
@@ -298,12 +308,12 @@ input[type=button] {
 
 //  Boot Configuration Structure
 struct bc_set {
-    uint8_t isConf:1;
-    uint8_t isSetup:1;
-    uint8_t isUpdate:1;
-    uint8_t isHttperror:1;
-    uint8_t isWifierror:1;
-    uint8_t isCertError:1;
+    uint8_t isConf:1; //Once enter configuration flag
+    uint8_t isSetup:1; //Setup flag
+    uint8_t isUpdate:1; //Update flag
+    uint8_t isHttpError:1; //HTTP error
+    uint8_t isWifiError:1; //Error connecting to Wi-Fi
+    uint8_t isCertError:1; //Cert expired/not correct error
     uint8_t field7:1;
     uint8_t field8:1;
 };
@@ -321,6 +331,11 @@ bc_set marks;
 String device_id = "Light_" + String(ESP.getChipId());
 RGB_LED state_led(LED_PIN_RED, LED_PIN_GREEN, LED_PIN_BLUE);
 
+
+inline void reboot() {
+    DEBUG_N("[DEBUG]Rebooting device.");
+    ESP.restart();
+}
 
 //  Strip control class
 class Strip_Control {
@@ -372,13 +387,28 @@ Strip_Control::Strip_Control() {
     _https.setReuse(true);
     _https.setUserAgent(device_id.c_str());
     _https.begin(url,cert);
-    _response_code = _https.GET();
-    if (_https.connected()) {
-        DEBUG_N("[DEBUG]Connection to API - successful.");
-    } else {
-        // TODO: isHttperror
-        DEBUG_N("[DEBUG]Connecting to API - failed.");
-    }
+    //Check connection with server
+    DEBUG_S("[DEBUG]Attempting connect to API");
+    do {
+        _response_code = _https.GET();
+        _error_counter++;
+        if (_error_counter >= 10) {
+            DEBUG_N("\n[DEBUG]Connect to API failed.");
+            if (_response_code == -1) {
+                marks.isCertError = 1;
+            } else {
+                marks.isHttpError = 1;
+            }
+            marks.isConf = 1;
+            settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
+            reboot();
+        }
+        DEBUG_S(".");
+        FLUSH();
+        delay(750);
+    } while (!_https.connected());
+    DEBUG_N("\n[DEBUG]Connect to API successful.");
+    _error_counter = 0;
     //  Indicate that we ready to work with strip
     state_led.led_set(LED_BLUE);
 }
@@ -451,11 +481,8 @@ void Strip_Control::_parseData() {
 
 
 void Strip_Control::_getData() {
-    // Serial.println("Here 1");
-    // DEBUG_N("[DEBUG]Sending request.");
     _response_code = _https.GET();
-    DEBUG_N("[DEBUG]Request sent.");
-    // Serial.println("Here 2");
+    DEBUG_N("[DEBUG]Request sent.")
     if (_response_code == 200) {
         String response;
         response = _https.getString();
@@ -470,10 +497,9 @@ void Strip_Control::_getData() {
         }
     }
     _isNewData = false;
-    // Serial.println("Here 3");
     DEBUG_S("[DEBUG]Request error. Response code: ");
     DEBUG_N(_response_code);
-    // Serial.println("Here 4");
+    _error_counter++;
     return;
 }
 
@@ -798,12 +824,6 @@ uint32_t Strip_Control::_wheel(byte WheelPos) {
 }
 
 
-inline void reboot() {
-    DEBUG_N("[DEBUG]Rebooting device.");
-    ESP.restart();
-}
-
-
 uint8_t parse_elem_uint(const char* raw, uint8_t* dest, const char* key) {
     char *ptr, *eq;
     ptr = strstr(raw, key);
@@ -987,6 +1007,7 @@ void config_server() {
 
 
 void ota_update() {
+    // TODO: rewrite update on new core
     state_led.led_set(LED_MARINE);
     ESP8266HTTPUpdate ESPUpdate;
     ESPUpdate.rebootOnUpdate(false);
@@ -1002,7 +1023,7 @@ void ota_update() {
             break;
         case HTTP_UPDATE_NO_UPDATES:
             DEBUG_N("[DEBUG]No updates available.");
-            // marks.isUpdate = 0; //TODO: update
+            // marks.isUpdate = 0;
             // settings.writeByte(BCS_ADDR,(uint8_t*)(&marks));
             break;
         case HTTP_UPDATE_OK:
@@ -1069,7 +1090,7 @@ void setup() {
         } else {
             DEBUG_N();
             marks.isSetup = 1;
-            marks.isWifierror = 1;
+            marks.isWifiError = 1;
             settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
             WiFi.disconnect();
             reboot();
@@ -1081,7 +1102,7 @@ void setup() {
         ota_update();
         DEBUG_N("[DEBUG]Update ended.");
     } else {
-        //  TODO: deprecate when update will be fixed
+        //TODO: deprecate when update will be fixed
         marks.isUpdate = 1;
         settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
     }
