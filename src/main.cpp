@@ -12,37 +12,40 @@
 //  Status led control
 #include <RGB_LED.h>
 
-
-//TODO: Move page to SPIFFS
 //TODO: Rewrite update on new core
+//TODO: Rewrite page to generate inputs by itself
 //TODO: Test network errors on new core
 //TODO: Comment code
 //TODO: Split SC class to SC class and web interface class
 //TODO: Add button
+//TODO: Implement flash data encryption
+//TODO: Move web settings page to SPIFFS
+
+
+//  Update settings
+#define VER "00008031"
 
 
 //  Defined for debug (Serial)
-#define DEBUG_N(x) Serial.println(x);
-#ifndef DEBUG_N
+#ifndef DEBUG
     #define DEBUG_N(x)
     #define DEBUG_S(x)
     #define FLUSH()
+    #define CURR_VER VER "-light"
 #else
+    #define DEBUG_N(x) Serial.println(x);
     #define DEBUG_S(x) Serial.print(x);
     #define FLUSH() Serial.flush();
-    #define DEBUG
+    #define CURR_VER VER "-light-d"
     #define DEBUG_DELIMETER "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
 #endif
 
 #define forever for (;;)
 
 
-//  Update settings
-#define CURR_VER "008020"
-
 //  LED config
-#define LED_PIN_RED     4
-#define LED_PIN_BLUE    14
+#define LED_PIN_RED     7
+#define LED_PIN_BLUE    6
 #define LED_PIN_GREEN   5
 
 
@@ -297,7 +300,7 @@ input[type=button] {
 
 
 //  Strip configuration
-#define STRIP_PIN       13 //Pin where strip is connected
+#define STRIP_PIN       2 //Pin where strip is connected (old 13)
 #define CHASE_TIMING    80 //Timing of chase mode
 #define TIMING          80  //Timing of rainbow mods
 #define FILL_REPEATS    2 //Number of fill repeats for avoid random lighting
@@ -331,7 +334,7 @@ bc_set marks;
 String device_id = "Light_" + String(ESP.getChipId());
 RGB_LED state_led(LED_PIN_RED, LED_PIN_GREEN, LED_PIN_BLUE);
 
-
+/* Rebooting ESP */
 inline void reboot() {
     DEBUG_N("[DEBUG]Rebooting device.");
     ESP.restart();
@@ -340,9 +343,10 @@ inline void reboot() {
 //  Strip control class
 class Strip_Control {
 private: 
-    // BearSSL::WiFiClientSecure client;
+    // ***[Fields]***
+    // BearSSL::WiFiClientSecure _client;
     HTTPClient _https;
-    Adafruit_NeoPixel _strip = Adafruit_NeoPixel(1, STRIP_PIN, NEO_GRB + NEO_KHZ800);;
+    Adafruit_NeoPixel _strip = Adafruit_NeoPixel(1, STRIP_PIN, NEO_GRB + NEO_KHZ800);
     bool _isNewData = true;
     float _brightness = 0.5;
     uint8_t _error_counter = 0;
@@ -350,11 +354,14 @@ private:
     uint32_t _color;
     int16_t _response_code;
     String _response;
+    // ***[Methods]***
     uint8_t _parseUint32(const char*, uint32_t*, const char*);
     uint8_t _parseUint16(const char*, uint16_t*, const char*);
     void _getData();
     void _parseData();
     void _modeSelect();
+    inline void _checkUpdates();
+    // ***[Modes]***
     void _fillColor();
     void _rainbow();
     void _rainbowCycle();
@@ -366,9 +373,21 @@ private:
     int _randgen(int);
     void _breathe();
 public:
-    Strip_Control();
+    Strip_Control(); //Constructor
     void start();
 };
+
+
+//Check updates 
+// inline void Strip_Control::_checkUpdates() {
+//     if (millis() - timer > CHECK_DELAY) {
+//         _getData();
+//         if (_isNewData) return;
+//         timer = millis();
+//     } else {
+//         delay(TIMING);
+//     }
+// }
 
 
 Strip_Control::Strip_Control() {
@@ -380,13 +399,16 @@ Strip_Control::Strip_Control() {
     _strip.show();
     //  Setting up connection to the API
     String url = link;
-    url += "ans.php?rm=";
+    url += "/light_api/ans.php?rm=";
     url += token;
     DEBUG_N("[DEBUG]Final API request link:");
     DEBUG_N(url);
+    // _client.setFingerprint(cert);
     _https.setReuse(true);
     _https.setUserAgent(device_id.c_str());
+    //FIXME: Secure begin method was deprecated
     _https.begin(url,cert);
+    // _https.begin(_client, url);
     //Check connection with server
     DEBUG_S("[DEBUG]Attempting connect to API");
     do {
@@ -404,7 +426,7 @@ Strip_Control::Strip_Control() {
             reboot();
         }
         DEBUG_S(".");
-        FLUSH();
+        // FLUSH(); //FIXME: m-b not needed
         delay(750);
     } while (!_https.connected());
     DEBUG_N("\n[DEBUG]Connect to API successful.");
@@ -482,7 +504,7 @@ void Strip_Control::_parseData() {
 
 void Strip_Control::_getData() {
     _response_code = _https.GET();
-    DEBUG_N("[DEBUG]Request sent.")
+    DEBUG_N("[DEBUG]Request sent.");
     if (_response_code == 200) {
         String response;
         response = _https.getString();
@@ -1012,8 +1034,11 @@ void ota_update() {
     ESP8266HTTPUpdate ESPUpdate;
     ESPUpdate.rebootOnUpdate(false);
     String update_url = link;
-    update_url += "update.php";
+    update_url += "/update_center/update_handler.php";
+    // update_url += "/light_api/update.php";
     DEBUG_N("[DEBUG]Composed update link: " + update_url);
+    //FIXME: Secure update method was deprecated
+    ESPUpdate.setLedPin(state_led.get_pin(LED_BLUE));
     HTTPUpdateResult result = ESPUpdate.update(update_url, CURR_VER, cert);
     switch (result) {
         case HTTP_UPDATE_FAILED:
@@ -1108,7 +1133,6 @@ void setup() {
     }
     state_led.led_set(LED_GREEN);
 }
-
 
 void loop() {
     #ifdef DEBUG

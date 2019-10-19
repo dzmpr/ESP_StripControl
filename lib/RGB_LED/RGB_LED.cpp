@@ -10,7 +10,8 @@ RGB_LED::RGB_LED(uint8_t pin_red, uint8_t pin_green, uint8_t pin_blue) {
     pinMode(pin_blue, OUTPUT);
 }
 
-void RGB_LED::_led_set(colors color) { //todo: write led through reg manip
+void RGB_LED::_led_set(colors color) { 
+    //TODO: write led through reg manip
     switch (color)
     {
         case LED_RED: {

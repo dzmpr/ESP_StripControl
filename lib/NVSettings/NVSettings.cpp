@@ -71,7 +71,7 @@ uint8_t NVSettings::readByteArray(uint16_t addres, size_t size, uint8_t* array) 
 
 bool NVSettings::eepromUpdate(uint16_t addres, uint8_t value) {
     uint8_t compare = EEPROM.read(addres); //Read value from eeprom
-    #ifdef DEBUG
+    #ifdef DEBUG_NV
         Serial.print(value);
         Serial.print(" -> ");
         Serial.print(compare);
