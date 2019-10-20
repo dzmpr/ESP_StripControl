@@ -23,7 +23,7 @@
 
 
 //  Update settings
-#define VER "00008031"
+#define VER "00008032"
 
 
 //  Defined for debug (Serial)
@@ -44,9 +44,9 @@
 
 
 //  LED config
-#define LED_PIN_RED     7
-#define LED_PIN_BLUE    6
-#define LED_PIN_GREEN   5
+#define LED_PIN_RED     14
+#define LED_PIN_GREEN   12
+#define LED_PIN_BLUE    13
 
 
 //  AP defined settings
