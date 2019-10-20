@@ -354,13 +354,14 @@ private:
     uint32_t _color;
     int16_t _response_code;
     String _response;
+    uint32_t _timer;
     // ***[Methods]***
     uint8_t _parseUint32(const char*, uint32_t*, const char*);
     uint8_t _parseUint16(const char*, uint16_t*, const char*);
     void _getData();
     void _parseData();
     void _modeSelect();
-    inline void _checkUpdates();
+    // inline void _checkUpdates();
     // ***[Modes]***
     void _fillColor();
     void _rainbow();
@@ -378,12 +379,12 @@ public:
 };
 
 
-//Check updates 
+// Check updates 
 // inline void Strip_Control::_checkUpdates() {
-//     if (millis() - timer > CHECK_DELAY) {
+//     if (millis() - _timer > CHECK_DELAY) {
 //         _getData();
 //         if (_isNewData) return;
-//         timer = millis();
+//         _timer = millis();
 //     } else {
 //         delay(TIMING);
 //     }
@@ -593,7 +594,7 @@ void Strip_Control::_fillColor() {
 
 void Strip_Control::_rainbow() {
     DEBUG_N("[DEBUG]Mode 2.");
-    uint32_t timer = millis();
+    _timer = millis();
     uint16_t i, j;
     while (true) {
         yield();
@@ -602,10 +603,10 @@ void Strip_Control::_rainbow() {
                 _strip.setPixelColor(i, _wheel((i + j) & 255));
             }
             _strip.show();
-            if (millis() - timer > CHECK_DELAY) {
+            if (millis() - _timer > CHECK_DELAY) {
                 _getData();
                 if (_isNewData) return;
-                timer = millis();
+                _timer = millis();
             } else {
                 delay(TIMING);
             }
@@ -617,7 +618,7 @@ void Strip_Control::_rainbow() {
 void Strip_Control::_rainbowCycle() {
     DEBUG_N("[DEBUG]Mode 3.");
     uint16_t i, j;
-    uint32_t timer = millis();
+    _timer = millis();
     while (true) {
         yield();
         for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
@@ -625,10 +626,10 @@ void Strip_Control::_rainbowCycle() {
                 _strip.setPixelColor(i, _wheel(((i * 256 / _strip.numPixels()) + j) & 255));
             }
             _strip.show();
-            if (millis() - timer > CHECK_DELAY) {
+            if (millis() - _timer > CHECK_DELAY) {
                 _getData();
                 if (_isNewData) return;
-                    timer = millis();
+                    _timer = millis();
                 } else {
                     delay(TIMING);
             }
@@ -639,7 +640,7 @@ void Strip_Control::_rainbowCycle() {
 
 void Strip_Control::_theaterChaseRainbow() {
     DEBUG_N("[DEBUG]Mode 4.");
-    uint32_t timer = millis();
+    _timer = millis();
     while (true) {
         yield();
         for (int j = 0; j < 256; j++) {   // cycle all 256 colors in the wheel
@@ -648,10 +649,10 @@ void Strip_Control::_theaterChaseRainbow() {
                     _strip.setPixelColor(i + q, _wheel((i + j) % 255)); //turn every third pixel on
                 }
                 _strip.show();
-                if (millis() - timer > CHECK_DELAY) {
+                if (millis() - _timer > CHECK_DELAY) {
                     _getData();
                     if (_isNewData) return;
-                    timer = millis();
+                    _timer = millis();
                 } else {
                     delay(CHASE_TIMING);
                 }
@@ -666,7 +667,7 @@ void Strip_Control::_theaterChaseRainbow() {
 
 void Strip_Control::_theaterChase() {
     DEBUG_N("[DEBUG]Mode 5.");
-    uint32_t timer = millis();
+    _timer = millis();
     while (true) {
         yield();
         for (int j = 0; j < 10; j++) { //do 10 cycles of chasing
@@ -675,10 +676,10 @@ void Strip_Control::_theaterChase() {
                     _strip.setPixelColor(i + q, _color);  //turn every third pixel on
                 }
                 _strip.show();
-                if (millis() - timer > CHECK_DELAY) {
+                if (millis() - _timer > CHECK_DELAY) {
                     _getData();
                     if (_isNewData) return;
-                    timer = millis();
+                    _timer = millis();
                 } else {
                     delay(CHASE_TIMING);
                 }
@@ -693,7 +694,7 @@ void Strip_Control::_theaterChase() {
 
 void Strip_Control::_fading() {
     DEBUG_N("[DEBUG]Mode 6.");
-    uint32_t timer = millis();
+    _timer = millis();
     while (true) {
         yield();
         for (int k = 0; k < 6; k++) {
@@ -713,10 +714,10 @@ void Strip_Control::_fading() {
                         _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
                     }
                 }
-            if (millis() - timer > CHECK_DELAY) {
+            if (millis() - _timer > CHECK_DELAY) {
                 _getData();
                 if (_isNewData) return;
-                timer = millis();
+                _timer = millis();
             } else {
                 delay(CHASE_TIMING);
             }
@@ -738,10 +739,10 @@ void Strip_Control::_fading() {
                         _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
                     }
                 }
-                if (millis() - timer > CHECK_DELAY) {
+                if (millis() - _timer > CHECK_DELAY) {
                     _getData();
                     if (_isNewData) return;
-                    timer = millis();
+                    _timer = millis();
                 } else {
                     delay(CHASE_TIMING);
                 }
@@ -754,8 +755,8 @@ void Strip_Control::_fading() {
 
 void Strip_Control::_randomLight() {
     DEBUG_N("[DEBUG]Mode 7.");
-    uint32_t timer = millis();
-    randomSeed(timer);
+    _timer = millis();
+    randomSeed(_timer);
     int pixels[*led_count];
     while (true) {
         yield();
@@ -786,10 +787,10 @@ void Strip_Control::_randomLight() {
         }
         _strip.setPixelColor(pixels[i], _strip.Color(_randgen(colors[0]), _randgen(colors[1]), _randgen(colors[2])));
         _strip.show();
-        if (millis() - timer > CHECK_DELAY) {
+        if (millis() - _timer > CHECK_DELAY) {
             _getData();
             if (_isNewData) return;
-                timer = millis();
+                _timer = millis();
             } else {
                 delay(130);
             }
@@ -800,16 +801,16 @@ void Strip_Control::_randomLight() {
 
 void Strip_Control::_breathe() {
     DEBUG_N("[DEBUG]Mode 8.");
-    uint32_t timer = millis();
-    randomSeed(timer);
+    _timer = millis();
+    randomSeed(_timer);
     forever {
         yield();
         _strip.fill(random(32768));
         _strip.show();
-        if (millis() - timer > CHECK_DELAY) {
+        if (millis() - _timer > CHECK_DELAY) {
             _getData();
             if (_isNewData) return;
-                timer = millis();
+                _timer = millis();
             } else {
                 delay(1200);
         }
