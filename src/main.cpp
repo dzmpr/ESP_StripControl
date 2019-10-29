@@ -301,8 +301,8 @@ input[type=button] {
 
 //  Strip configuration
 #define STRIP_PIN       2 //Pin where strip is connected (old 13)
-#define CHASE_TIMING    80 //Timing of chase mode
-#define TIMING          80  //Timing of rainbow mods
+#define CHASE_TIMING    80 //Delay of chase mode
+#define TIMING          80  //Delay of rainbow mods
 #define FILL_REPEATS    2 //Number of fill repeats for avoid random lighting
 #define CHECK_DELAY     2000  //New data check delay for 2+ modes
 #define FADE_STEP       4 //Step for rising colors in fade mode
@@ -311,12 +311,12 @@ input[type=button] {
 
 //  Boot Configuration Structure
 struct bc_set {
-    uint8_t isConf:1; //Once enter configuration flag
-    uint8_t isSetup:1; //Setup flag
-    uint8_t isUpdate:1; //Update flag
-    uint8_t isHttpError:1; //HTTP error
+    uint8_t isConf:1; //Enter setup once, will be descended after enter
+    uint8_t isSetup:1; //Enter setup while flag wiil be not descended
+    uint8_t isUpdate:1; //Notes that device need update
+    uint8_t isHttpError:1; //HTTP error (response code not 200)
     uint8_t isWifiError:1; //Error connecting to Wi-Fi
-    uint8_t isCertError:1; //Cert expired/not correct error
+    uint8_t isCertError:1; //Cert expired/not correct (server response "Connection refused")
     uint8_t field7:1;
     uint8_t field8:1;
 };
@@ -340,21 +340,21 @@ inline void reboot() {
     ESP.restart();
 }
 
-//  Strip control class
+//Strip control class
 class Strip_Control {
 private: 
     // ***[Fields]***
-    // BearSSL::WiFiClientSecure _client;
+    BearSSL::WiFiClientSecure _client;
     HTTPClient _https;
     Adafruit_NeoPixel _strip = Adafruit_NeoPixel(1, STRIP_PIN, NEO_GRB + NEO_KHZ800);
-    bool _isNewData = true;
+    bool _isNewData = true;//Flag that displays whether new data recieved
     float _brightness = 0.5;
-    uint8_t _error_counter = 0;
+    uint8_t _error_counter = 0;//How many errors was occured
     uint16_t _mode;
     uint32_t _color;
-    int16_t _response_code;
-    String _response;
-    uint32_t _timer;
+    int16_t _response_code;//Last HTTP code was recieved
+    String _response;//Last response body
+    uint32_t _timer;//Timer for color modes
     // ***[Methods]***
     uint8_t _parseUint32(const char*, uint32_t*, const char*);
     uint8_t _parseUint16(const char*, uint16_t*, const char*);
@@ -374,7 +374,7 @@ private:
     int _randgen(int);
     void _breathe();
 public:
-    Strip_Control(); //Constructor
+    Strip_Control();//Constructor
     void start();
 };
 
@@ -396,7 +396,7 @@ Strip_Control::Strip_Control() {
     _strip.updateLength((uint16_t)(*(led_count)));
     _strip.setBrightness(255);
     _strip.begin();
-    _strip.fill(_strip.Color(1,1,1));
+    _strip.fill(_strip.Color(1,1,1)); //Fill all led's with low white color
     _strip.show();
     //  Setting up connection to the API
     String url = link;
@@ -404,20 +404,20 @@ Strip_Control::Strip_Control() {
     url += token;
     DEBUG_N("[DEBUG]Final API request link:");
     DEBUG_N(url);
-    // _client.setFingerprint(cert);
+    _client.setFingerprint(cert);
     _https.setReuse(true);
     _https.setUserAgent(device_id.c_str());
     //FIXME: Secure begin method was deprecated
-    _https.begin(url,cert);
-    // _https.begin(_client, url);
-    //Check connection with server
+    // _https.begin(url,cert);
+    _https.begin(_client, url);
+    //Make request to server for figure out is connection established
     DEBUG_S("[DEBUG]Attempting connect to API");
-    do {
+    do {//Check http connection to server
         _response_code = _https.GET();
         _error_counter++;
-        if (_error_counter >= 10) {
+        if (_error_counter >= 10) {//Check is ereors exceeded limit
             DEBUG_N("\n[DEBUG]Connect to API failed.");
-            if (_response_code == -1) {
+            if (_response_code == -1) {//Connection refused server response
                 marks.isCertError = 1;
             } else {
                 marks.isHttpError = 1;
@@ -428,7 +428,7 @@ Strip_Control::Strip_Control() {
         }
         DEBUG_S(".");
         // FLUSH(); //FIXME: m-b not needed
-        delay(750);
+        delay(750);//FIXME: check delay timings
     } while (!_https.connected());
     DEBUG_N("\n[DEBUG]Connect to API successful.");
     _error_counter = 0;
@@ -492,7 +492,7 @@ void Strip_Control::_parseData() {
     DEBUG_N(temp_color);
     DEBUG_S("[DEBUG]Parsed mode: ");
     DEBUG_N(temp_mode);
-    if (_color != temp_color || _mode != temp_mode) {
+    if (_color != temp_color || _mode != temp_mode) {//If new data recieved
         if (temp_mode == 7) {
             _brightness = float(temp_color) / 100;
         } else {
@@ -564,13 +564,13 @@ uint8_t Strip_Control::_parseUint16(const char* raw, uint16_t* dest, const char*
 
 
 void Strip_Control::start() {
-    uint32_t loop_timer = 0;
+    uint32_t loop_timer = 0;//FIXME: May be possibe use common timer
     forever {
         yield();
         if (loop_timer + POLLING_TIME < millis()) {
             _getData();
             if (_isNewData) {
-                loop_timer = millis();
+                loop_timer = millis();//FIXME: Simplify code
                 _parseData();
                 _modeSelect();
             } else {
@@ -692,7 +692,7 @@ void Strip_Control::_theaterChase() {
 }
 
 
-void Strip_Control::_fading() {
+void Strip_Control::_fading() {//FIXME: Simplify code with HSV
     DEBUG_N("[DEBUG]Mode 6.");
     _timer = millis();
     while (true) {
@@ -969,7 +969,7 @@ void writeSettings() {
 }
 
 
-void config_server() {
+void config_server() {//FIXME: Add DNS captive portal
     state_led.led_set(LED_YELLOW);
     if (marks.isConf) {
         marks.isConf = 0;
@@ -1031,16 +1031,16 @@ void config_server() {
 
 void ota_update() {
     // TODO: rewrite update on new core
+    BearSSL::WiFiClientSecure client;
+    client.setFingerprint(cert);//Set HTTPS certificate
     state_led.led_set(LED_MARINE);
     ESP8266HTTPUpdate ESPUpdate;
     ESPUpdate.rebootOnUpdate(false);
     String update_url = link;
     update_url += "/update_center/update_handler.php";
-    // update_url += "/light_api/update.php";
     DEBUG_N("[DEBUG]Composed update link: " + update_url);
-    //FIXME: Secure update method was deprecated
     ESPUpdate.setLedPin(state_led.get_pin(LED_BLUE));
-    HTTPUpdateResult result = ESPUpdate.update(update_url, CURR_VER, cert);
+    HTTPUpdateResult result = ESPUpdate.update(client, update_url, CURR_VER);
     switch (result) {
         case HTTP_UPDATE_FAILED:
             #ifdef DEBUG
@@ -1049,6 +1049,7 @@ void ota_update() {
             break;
         case HTTP_UPDATE_NO_UPDATES:
             DEBUG_N("[DEBUG]No updates available.");
+            //FIXME: When button will be adeed, need to reset update flag
             // marks.isUpdate = 0;
             // settings.writeByte(BCS_ADDR,(uint8_t*)(&marks));
             break;
@@ -1108,6 +1109,7 @@ void setup() {
     }
     DEBUG_S("[DEBUG]Connecting to WiFi.");
     wf_connect_timer = millis();
+    //TODO: Add info about wi-fi not connected status
     while (WiFi.status() != WL_CONNECTED) {
         if (wf_connect_timer + 15000 >= millis()) {
             DEBUG_S(".");
