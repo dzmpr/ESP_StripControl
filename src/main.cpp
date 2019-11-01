@@ -11,6 +11,8 @@
 #include <Adafruit_NeoPixel.h>
 //  Status led control
 #include <RGB_LED.h>
+//  DNS Server
+#include <DNSServer.h>
 
 //TODO: Rewrite update on new core
 //TODO: Rewrite page to generate inputs by itself
@@ -975,18 +977,23 @@ void config_server() {//FIXME: Add DNS captive portal
         marks.isConf = 0;
         settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
     }
+    DNSServer dns;
     WiFiServer server(80);
     WiFi.mode(WIFI_AP);
     WiFi.softAP(device_id.c_str(), AP_PASS);
     WiFi.softAPConfig(AP_STATIC);
     DEBUG_S("[DEBUG]AP started at: http://");
     DEBUG_N(WiFi.softAPIP());
+    dns.setTTL(60);
+    dns.setErrorReplyCode(DNSReplyCode::ServerFailure);
+    dns.start(53, "*", WiFi.softAPIP());
     server.begin();
     uint32_t timer = 0, blink_timer = millis();
     String request;
     const char* req;
     while (true) {
         yield();
+        dns.processNextRequest();
         WiFiClient AP_client = server.available();
         if (AP_client) {
             request = AP_client.readStringUntil('\r');
@@ -994,11 +1001,7 @@ void config_server() {//FIXME: Add DNS captive portal
             req = request.c_str();
             DEBUG_N("[DEBUG]Client connected.");
             DEBUG_N("[DEBUG]Client request:\n" + request);
-            if (strstr(req, "GET / ") != nullptr) {
-                DEBUG_N("[DEBUG]Sending configuration page.");
-                AP_client.print(header_html);
-                AP_client.print(page);
-            } else if (strstr(req, "GET /config") != nullptr) {
+            if (strstr(req, "GET /config") != nullptr) {
                 DEBUG_N("[DEBUG]Config data recieved.");
                 AP_client.print(header_text);
                 AP_client.print("OK");
@@ -1016,8 +1019,9 @@ void config_server() {//FIXME: Add DNS captive portal
                 marks.isUpdate = 1;
                 settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
             } else {
-                DEBUG_N("[DEBUG]Unrecognized request.");
-                AP_client.print("HTTP/1.1 404 Not Found\r\n\r\n");
+                DEBUG_N("[DEBUG]Sending configuration page.");
+                AP_client.print(header_html);
+                AP_client.print(page);
             }
         }
         if (timer != 0 && timer + 400 < millis()) reboot();
