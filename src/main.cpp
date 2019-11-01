@@ -25,7 +25,7 @@
 
 
 //  Update settings
-#define VER "00008032"
+#define VER "00008040"
 
 
 //  Defined for debug (Serial)
@@ -971,13 +971,13 @@ void writeSettings() {
 }
 
 
-void config_server() {//FIXME: Add DNS captive portal
+void config_server() {
     state_led.led_set(LED_YELLOW);
     if (marks.isConf) {
         marks.isConf = 0;
         settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
     }
-    DNSServer dns;
+    DNSServer dns;//DNS server object
     WiFiServer server(80);
     WiFi.mode(WIFI_AP);
     WiFi.softAP(device_id.c_str(), AP_PASS);
@@ -986,7 +986,7 @@ void config_server() {//FIXME: Add DNS captive portal
     DEBUG_N(WiFi.softAPIP());
     dns.setTTL(60);
     dns.setErrorReplyCode(DNSReplyCode::ServerFailure);
-    dns.start(53, "*", WiFi.softAPIP());
+    dns.start(53, "*", WiFi.softAPIP());//Start server for all requests with redirect to local web-server
     server.begin();
     uint32_t timer = 0, blink_timer = millis();
     String request;
