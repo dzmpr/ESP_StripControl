@@ -363,7 +363,7 @@ private:
     void _getData();
     void _parseData();
     void _modeSelect();
-    // inline void _checkUpdates();
+    inline void _checkUpdates();
     // ***[Modes]***
     void _fillColor();
     void _rainbow();
@@ -381,16 +381,15 @@ public:
 };
 
 
-// Check updates 
-// inline void Strip_Control::_checkUpdates() {
-//     if (millis() - _timer > CHECK_DELAY) {
-//         _getData();
-//         if (_isNewData) return;
-//         _timer = millis();
-//     } else {
-//         delay(TIMING);
-//     }
-// }
+//Check new data on server
+inline void Strip_Control::_checkUpdates() {
+    if (millis() - _timer > CHECK_DELAY) {
+        _getData();
+        _timer = millis();
+    } else {
+        delay(TIMING);
+    }
+}
 
 
 Strip_Control::Strip_Control() {
@@ -494,29 +493,29 @@ void Strip_Control::_parseData() {
     DEBUG_N(temp_color);
     DEBUG_S("[DEBUG]Parsed mode: ");
     DEBUG_N(temp_mode);
-    if (_color != temp_color || _mode != temp_mode) {//If new data recieved
+    // if (_color != temp_color || _mode != temp_mode) {//If new data recieved
         if (temp_mode == 7) {
             _brightness = float(temp_color) / 100;
         } else {
             _color = temp_color;
         }
         _mode = temp_mode;
-    }
+    // }
 }
 
 
 void Strip_Control::_getData() {
     _response_code = _https.GET();
     DEBUG_N("[DEBUG]Request sent.");
-    if (_response_code == 200) {
+    if (_response_code == 200) {//If response code - OK
         String response;
-        response = _https.getString();
+        response = _https.getString();//Save server response
         DEBUG_N("[DEBUG]Old response: " + _response);
         DEBUG_N("[DEBUG]Recieved response: " + response);
-        if (_response == response) {
-            return;
+        if (_response == response) {//Compare old response and recently getted
+            return;//Old and new are the same
         } else {
-            _response = response;
+            _response = response;//Replace old response with new
             _isNewData = true;
             return;
         }
@@ -570,7 +569,6 @@ void Strip_Control::start() {
     forever {
         yield();
         if (loop_timer + POLLING_TIME < millis()) {
-            _getData();
             if (_isNewData) {
                 loop_timer = millis();//FIXME: Simplify code
                 _parseData();
@@ -578,6 +576,7 @@ void Strip_Control::start() {
             } else {
                 loop_timer = millis();
             }
+            _getData();
         }
     }
 }
@@ -605,13 +604,8 @@ void Strip_Control::_rainbow() {
                 _strip.setPixelColor(i, _wheel((i + j) & 255));
             }
             _strip.show();
-            if (millis() - _timer > CHECK_DELAY) {
-                _getData();
-                if (_isNewData) return;
-                _timer = millis();
-            } else {
-                delay(TIMING);
-            }
+            _checkUpdates();
+            if (_isNewData) return;
         }
     }
 }
@@ -628,13 +622,8 @@ void Strip_Control::_rainbowCycle() {
                 _strip.setPixelColor(i, _wheel(((i * 256 / _strip.numPixels()) + j) & 255));
             }
             _strip.show();
-            if (millis() - _timer > CHECK_DELAY) {
-                _getData();
-                if (_isNewData) return;
-                    _timer = millis();
-                } else {
-                    delay(TIMING);
-            }
+            _checkUpdates();
+            if (_isNewData) return;
         }
     }
 }
@@ -651,13 +640,8 @@ void Strip_Control::_theaterChaseRainbow() {
                     _strip.setPixelColor(i + q, _wheel((i + j) % 255)); //turn every third pixel on
                 }
                 _strip.show();
-                if (millis() - _timer > CHECK_DELAY) {
-                    _getData();
-                    if (_isNewData) return;
-                    _timer = millis();
-                } else {
-                    delay(CHASE_TIMING);
-                }
+                _checkUpdates();
+                if (_isNewData) return;
                 for (int i = 0; i < _strip.numPixels(); i = i + 3) {
                     _strip.setPixelColor(i + q, 0);      //turn every third pixel off
                 }
@@ -678,13 +662,8 @@ void Strip_Control::_theaterChase() {
                     _strip.setPixelColor(i + q, _color);  //turn every third pixel on
                 }
                 _strip.show();
-                if (millis() - _timer > CHECK_DELAY) {
-                    _getData();
-                    if (_isNewData) return;
-                    _timer = millis();
-                } else {
-                    delay(CHASE_TIMING);
-                }
+                _checkUpdates();
+                if (_isNewData) return;
                 for (int i = 0; i < _strip.numPixels(); i = i + 3) {
                     _strip.setPixelColor(i + q, 0);      //turn every third pixel off
                 }
@@ -716,14 +695,9 @@ void Strip_Control::_fading() {//FIXME: Simplify code with HSV
                         _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
                     }
                 }
-            if (millis() - _timer > CHECK_DELAY) {
-                _getData();
-                if (_isNewData) return;
-                _timer = millis();
-            } else {
-                delay(CHASE_TIMING);
-            }
                 _strip.show();
+                _checkUpdates();
+                if (_isNewData) return;
             }
             for (int i = 254; i > 1; i -= FADE_STEP) {
                 for (int j = 0; j < *led_count; j++) {
@@ -741,14 +715,9 @@ void Strip_Control::_fading() {//FIXME: Simplify code with HSV
                         _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
                     }
                 }
-                if (millis() - _timer > CHECK_DELAY) {
-                    _getData();
-                    if (_isNewData) return;
-                    _timer = millis();
-                } else {
-                    delay(CHASE_TIMING);
-                }
                 _strip.show();
+                _checkUpdates();
+                if (_isNewData) return;
             }
         }
     }
@@ -789,13 +758,8 @@ void Strip_Control::_randomLight() {
         }
         _strip.setPixelColor(pixels[i], _strip.Color(_randgen(colors[0]), _randgen(colors[1]), _randgen(colors[2])));
         _strip.show();
-        if (millis() - _timer > CHECK_DELAY) {
-            _getData();
-            if (_isNewData) return;
-                _timer = millis();
-            } else {
-                delay(130);
-            }
+        _checkUpdates();
+        if (_isNewData) return;
         }
     }
 }
@@ -809,13 +773,8 @@ void Strip_Control::_breathe() {
         yield();
         _strip.fill(random(32768));
         _strip.show();
-        if (millis() - _timer > CHECK_DELAY) {
-            _getData();
-            if (_isNewData) return;
-                _timer = millis();
-            } else {
-                delay(1200);
-        }
+        _checkUpdates();
+        if (_isNewData) return;
     }
 }
 
