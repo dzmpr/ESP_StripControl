@@ -302,7 +302,7 @@ input[type=button] {
 
 
 //  Strip configuration
-#define STRIP_PIN       2 //Pin where strip is connected (old 13)
+#define STRIP_PIN       4 //Pin where strip is connected (old 13)
 #define CHASE_TIMING    80 //Delay of chase mode
 #define TIMING          80  //Delay of rainbow mods
 #define FILL_REPEATS    2 //Number of fill repeats for avoid random lighting
@@ -408,8 +408,6 @@ Strip_Control::Strip_Control() {
     _client.setFingerprint(cert);
     _https.setReuse(true);
     _https.setUserAgent(device_id.c_str());
-    //FIXME: Secure begin method was deprecated
-    // _https.begin(url,cert);
     _https.begin(_client, url);
     //Make request to server for figure out is connection established
     DEBUG_S("[DEBUG]Attempting connect to API");
