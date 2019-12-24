@@ -52,6 +52,7 @@
     class StripControl {
         public:
             StripControl(uint16_t, NetworkHandler*);
+            void modeSelection();
         private:
             ///[Service]
             Adafruit_NeoPixel _strip = Adafruit_NeoPixel(1,4,NEO_GRB + NEO_KHZ800);

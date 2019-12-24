@@ -26,15 +26,15 @@ NetworkHandler::NetworkHandler(String url, uint8_t* certificate) {
 void NetworkHandler::makeRequest() {
     _responseCode = _https.GET();
     DEBUG_N("[DEBUG]Request sent.");
-    if (_responseCode == 200) {
-        _newResponse = _https.getString();
+    if (_responseCode == 200) {//Request succeed 
+        _newResponse = _https.getString();//Save response
         DEBUG_N("[DEBUG]Old response: " + _response);
         DEBUG_N("[DEBUG]New response: " + _newResponse);
         if (_response == _newResponse) {
             return;
-        } else {
-            _response = _newResponse;
-            _isNewData = true;
+        } else {//When new data retrieved
+            _response = _newResponse;//Replace old data
+            _isNewData = true;//Mark that new data got
             return;
         }
     }
@@ -49,10 +49,14 @@ inline bool NetworkHandler::newDataStatus() {
     return _isNewData;
 }
 
-void NetworkHandler::parseResponse() {
-    
+String NetworkHandler::getResponse() {
+    return _response;
 }
 
-int16_t NetworkHandler::checkConnection() {
-    return 0; //FIXME:
+int16_t NetworkHandler::getResponseCode() {
+    return _responseCode;
+}
+
+void NetworkHandler::dataProcessed() {
+    _isNewData = false;
 }

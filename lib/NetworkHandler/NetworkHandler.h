@@ -26,9 +26,10 @@ private:
 public:
     NetworkHandler(String, uint8_t*);
     void makeRequest();
-    void parseResponse();
+    String getResponse();
+    int16_t getResponseCode();
     inline bool newDataStatus();
-    int16_t checkConnection();
+    void dataProcessed();
 };
 
 #endif

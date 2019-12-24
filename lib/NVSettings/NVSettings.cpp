@@ -77,13 +77,13 @@ bool NVSettings::eepromUpdate(uint16_t addres, uint8_t value) {
         Serial.print(compare);
     #endif
     if (compare != value) { 
-        #ifdef DEBUG
+        #ifdef DEBUG_NV
             Serial.println(" - written.");
         #endif
         EEPROM.write(addres, value); //Write value to cell
         return true; //True when in cell was different symbol
     }
-    #ifdef DEBUG
+    #ifdef DEBUG_NV
         Serial.println();
     #endif
     return false; //False when in cell already same symbol

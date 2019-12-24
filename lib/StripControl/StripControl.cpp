@@ -186,6 +186,8 @@ inline void StripControl::_checkUpdates(uint32_t latency) {
     }
 }
 
+///[Modes]
+
 void StripControl::_fill() {
     _strip.fill(_rgbColor.getPacked());
     _strip.show();

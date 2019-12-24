@@ -1,16 +1,17 @@
 //  General
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-//  EEPROM
-#include <NVSettings.h>
-//  HTTP Client
+//  Network
 #include <ESP8266HTTPClient.h>
-//  HTTP Update
 #include <ESP8266httpUpdate.h>
-//  Strip
+#include "NetworkHandler.h"
+//  Strip handling
 #include <Adafruit_NeoPixel.h>
+#include "StripControl.h"
 //  Status led control
 #include <RGB_LED.h>
+//  EEPROM
+#include <NVSettings.h>
 //  DNS Server
 #include <DNSServer.h>
 
@@ -302,23 +303,21 @@ input[type=button] {
 
 
 //  Strip configuration
-#define STRIP_PIN       4 //Pin where strip is connected (old 13)
-#define CHASE_TIMING    80 //Delay of chase mode
-#define TIMING          80  //Delay of rainbow mods
-#define FILL_REPEATS    2 //Number of fill repeats for avoid random lighting
-#define CHECK_DELAY     2000  //New data check delay for 2+ modes
-#define FADE_STEP       4 //Step for rising colors in fade mode
-#define POLLING_TIME    2000 //API polling time in main loop
+#define STRIP_PIN       4       //Pin where strip is connected (old 13)
+#define CHASE_TIMING    80      //Delay of chase mode
+#define TIMING          80      //Delay of rainbow mods
+#define FILL_REPEATS    2       //Number of fill repeats for avoid random lighting
+#define FADE_STEP       4       //Step for rising colors in fade mode
 
 
 //  Boot Configuration Structure
 struct bc_set {
-    uint8_t isConf:1; //Enter setup once, will be descended after enter
-    uint8_t isSetup:1; //Enter setup while flag wiil be not descended
-    uint8_t isUpdate:1; //Notes that device need update
-    uint8_t isHttpError:1; //HTTP error (response code not 200)
-    uint8_t isWifiError:1; //Error connecting to Wi-Fi
-    uint8_t isCertError:1; //Cert expired/not correct (server response "Connection refused")
+    uint8_t isConf:1;       //Enter setup once, will be descended after enter
+    uint8_t isSetup:1;      //Enter setup while flag wiil be not descended
+    uint8_t isUpdate:1;     //Notes that device need update
+    uint8_t isHttpError:1;  //HTTP error (response code not 200)
+    uint8_t isWifiError:1;  //Error connecting to Wi-Fi
+    uint8_t isCertError:1;  //Cert expired/not correct (server response "Connection refused")
     uint8_t field7:1;
     uint8_t field8:1;
 };
@@ -343,7 +342,7 @@ inline void reboot() {
 }
 
 //Strip control class
-class Strip_Control {
+class Strip_Control_deprecated {
 private: 
     // ***[Fields]***
     BearSSL::WiFiClientSecure _client;
@@ -376,23 +375,12 @@ private:
     int _randgen(int);
     void _breathe();
 public:
-    Strip_Control();//Constructor
+    Strip_Control_deprecated();//Constructor
     void start();
 };
 
 
-//Check new data on server
-inline void Strip_Control::_checkUpdates() {
-    if (millis() - _timer > CHECK_DELAY) {
-        _getData();
-        _timer = millis();
-    } else {
-        delay(TIMING);
-    }
-}
-
-
-Strip_Control::Strip_Control() {
+Strip_Control_deprecated::Strip_Control_deprecated() {
     //  Creating instance of strip class and configure brightness
     _strip.updateLength((uint16_t)(*(led_count)));
     _strip.setBrightness(255);
@@ -436,7 +424,7 @@ Strip_Control::Strip_Control() {
 }
 
 
-void Strip_Control::_modeSelect() {
+void Strip_Control_deprecated::_modeSelect() {
     switch (_mode) {
         case 1: {
             _isNewData = false;
@@ -482,51 +470,7 @@ void Strip_Control::_modeSelect() {
 }
 
 
-void Strip_Control::_parseData() {
-    uint16_t temp_mode;
-    uint32_t temp_color;
-    _parseUint32(_response.c_str(), &(temp_color), "a");
-    _parseUint16(_response.c_str(), &(temp_mode), "b");
-    DEBUG_S("[DEBUG]Parsed color: ");
-    DEBUG_N(temp_color);
-    DEBUG_S("[DEBUG]Parsed mode: ");
-    DEBUG_N(temp_mode);
-    // if (_color != temp_color || _mode != temp_mode) {//If new data recieved
-        if (temp_mode == 7) {
-            _brightness = float(temp_color) / 100;
-        } else {
-            _color = temp_color;
-        }
-        _mode = temp_mode;
-    // }
-}
-
-
-void Strip_Control::_getData() {
-    _response_code = _https.GET();
-    DEBUG_N("[DEBUG]Request sent.");
-    if (_response_code == 200) {//If response code - OK
-        String response;
-        response = _https.getString();//Save server response
-        DEBUG_N("[DEBUG]Old response: " + _response);
-        DEBUG_N("[DEBUG]Recieved response: " + response);
-        if (_response == response) {//Compare old response and recently getted
-            return;//Old and new are the same
-        } else {
-            _response = response;//Replace old response with new
-            _isNewData = true;
-            return;
-        }
-    }
-    _isNewData = false;
-    DEBUG_S("[DEBUG]Request error. Response code: ");
-    DEBUG_N(_response_code);
-    _error_counter++;
-    return;
-}
-
-
-uint8_t Strip_Control::_parseUint32(const char* raw, uint32_t* dest, const char* key) {
+uint8_t Strip_Control_deprecated::_parseUint32(const char* raw, uint32_t* dest, const char* key) {
     char *ptr, *eq;
     ptr = strstr(raw, key);
     if (ptr != nullptr) {
@@ -544,7 +488,7 @@ uint8_t Strip_Control::_parseUint32(const char* raw, uint32_t* dest, const char*
 }
 
 
-uint8_t Strip_Control::_parseUint16(const char* raw, uint16_t* dest, const char* key) {
+uint8_t Strip_Control_deprecated::_parseUint16(const char* raw, uint16_t* dest, const char* key) {
     char *ptr, *eq;
     ptr = strstr(raw, key);
     if (ptr != nullptr) {
@@ -562,7 +506,7 @@ uint8_t Strip_Control::_parseUint16(const char* raw, uint16_t* dest, const char*
 }
 
 
-void Strip_Control::start() {
+void Strip_Control_deprecated::start() {
     uint32_t loop_timer = 0;//FIXME: May be possibe use common timer
     forever {
         yield();
@@ -577,232 +521,6 @@ void Strip_Control::start() {
             _getData();
         }
     }
-}
-
-
-void Strip_Control::_fillColor() {
-    DEBUG_N("[DEBUG]Mode 1.");
-    for (int j = 0; j < FILL_REPEATS; j++) {
-        for (int i = 0; i < *led_count; i++) {
-            _strip.setPixelColor(i, _color);
-        }
-        _strip.show();
-    }
-}
-
-
-void Strip_Control::_rainbow() {
-    DEBUG_N("[DEBUG]Mode 2.");
-    _timer = millis();
-    uint16_t i, j;
-    while (true) {
-        yield();
-        for (j = 0; j < 256; j++) {
-            for (i = 0; i < _strip.numPixels(); i++) {
-                _strip.setPixelColor(i, _wheel((i + j) & 255));
-            }
-            _strip.show();
-            _checkUpdates();
-            if (_isNewData) return;
-        }
-    }
-}
-
-
-void Strip_Control::_rainbowCycle() {
-    DEBUG_N("[DEBUG]Mode 3.");
-    uint16_t i, j;
-    _timer = millis();
-    while (true) {
-        yield();
-        for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
-            for (i = 0; i < _strip.numPixels(); i++) {
-                _strip.setPixelColor(i, _wheel(((i * 256 / _strip.numPixels()) + j) & 255));
-            }
-            _strip.show();
-            _checkUpdates();
-            if (_isNewData) return;
-        }
-    }
-}
-
-
-void Strip_Control::_theaterChaseRainbow() {
-    DEBUG_N("[DEBUG]Mode 4.");
-    _timer = millis();
-    while (true) {
-        yield();
-        for (int j = 0; j < 256; j++) {   // cycle all 256 colors in the wheel
-            for (int q = 0; q < 3; q++) {
-                for (int i = 0; i < _strip.numPixels(); i = i + 3) {
-                    _strip.setPixelColor(i + q, _wheel((i + j) % 255)); //turn every third pixel on
-                }
-                _strip.show();
-                _checkUpdates();
-                if (_isNewData) return;
-                for (int i = 0; i < _strip.numPixels(); i = i + 3) {
-                    _strip.setPixelColor(i + q, 0);      //turn every third pixel off
-                }
-            }
-        }
-    }
-}
-
-
-void Strip_Control::_theaterChase() {
-    DEBUG_N("[DEBUG]Mode 5.");
-    _timer = millis();
-    while (true) {
-        yield();
-        for (int j = 0; j < 10; j++) { //do 10 cycles of chasing
-            for (int q = 0; q < 3; q++) {
-                for (int i = 0; i < _strip.numPixels(); i = i + 3) {
-                    _strip.setPixelColor(i + q, _color);  //turn every third pixel on
-                }
-                _strip.show();
-                _checkUpdates();
-                if (_isNewData) return;
-                for (int i = 0; i < _strip.numPixels(); i = i + 3) {
-                    _strip.setPixelColor(i + q, 0);      //turn every third pixel off
-                }
-            }
-        }
-    }
-}
-
-
-void Strip_Control::_fading() {//FIXME: Simplify code with HSV
-    DEBUG_N("[DEBUG]Mode 6.");
-    _timer = millis();
-    while (true) {
-        yield();
-        for (int k = 0; k < 6; k++) {
-            for (int i = 0; i < 254; i += FADE_STEP) {
-                for (int j = 0; j < *led_count; j++) {
-                    if (k == 0) {
-                        _strip.setPixelColor(j, _strip.Color(1 + i, 0, 0));
-                    } else if (k == 1) {
-                        _strip.setPixelColor(j, _strip.Color(0, 1 + i, 0));
-                    } else if (k == 2) {
-                        _strip.setPixelColor(j, _strip.Color(0, 0, 1 + i));
-                    } else if (k == 3) {
-                        _strip.setPixelColor(j, _strip.Color(0, 1 + i, 1 + i));
-                    } else if (k == 4) {
-                        _strip.setPixelColor(j, _strip.Color(i + 1, 0, 1 + i));
-                    } else {
-                        _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
-                    }
-                }
-                _strip.show();
-                _checkUpdates();
-                if (_isNewData) return;
-            }
-            for (int i = 254; i > 1; i -= FADE_STEP) {
-                for (int j = 0; j < *led_count; j++) {
-                    if (k == 0) {
-                        _strip.setPixelColor(j, _strip.Color(1 + i, 0, 0));
-                    } else if (k == 1) {
-                        _strip.setPixelColor(j, _strip.Color(0, 1 + i, 0));
-                    } else if (k == 2) {
-                        _strip.setPixelColor(j, _strip.Color(0, 0, 1 + i));
-                    } else if (k == 3) {
-                        _strip.setPixelColor(j, _strip.Color(0, 1 + i, 1 + i));
-                    } else if (k == 4) {
-                        _strip.setPixelColor(j, _strip.Color(i + 1, 0, 1 + i));
-                    } else {
-                        _strip.setPixelColor(j, _strip.Color(1 + i, 1 + i, 0));
-                    }
-                }
-                _strip.show();
-                _checkUpdates();
-                if (_isNewData) return;
-            }
-        }
-    }
-}
-
-
-void Strip_Control::_randomLight() {
-    DEBUG_N("[DEBUG]Mode 7.");
-    _timer = millis();
-    randomSeed(_timer);
-    int pixels[*led_count];
-    while (true) {
-        yield();
-        for (int i = 0; i < *led_count; i++) pixels[i] = i;
-        for (int i = (*led_count) - 1; i > 0; i--) {
-            int temp, ran = random(i);
-            temp = pixels[i];
-            pixels[i] = pixels[ran];
-            pixels[ran] = temp;
-        }
-        for (int i = 0; i < *led_count; i++) {
-            int colors[3] = {1, 2, 3}, nulled, n_nulled = -1;
-            for (int i = 3 - 1; i > 0; i--) {
-                int temp, ran = random(i);
-                temp = colors[i];
-                colors[i] = colors[ran];
-                colors[ran] = temp;
-            }
-        if (random(1, 100) < 66) {
-            nulled = random(3);
-            colors[nulled] = 0;
-            if (random(1, 100) < 50) {
-                do {
-                    n_nulled = random(3);
-                } while (n_nulled == nulled);
-                colors[n_nulled] = 0;
-            }
-        }
-        _strip.setPixelColor(pixels[i], _strip.Color(_randgen(colors[0]), _randgen(colors[1]), _randgen(colors[2])));
-        _strip.show();
-        _checkUpdates();
-        if (_isNewData) return;
-        }
-    }
-}
-
-
-void Strip_Control::_breathe() {
-    DEBUG_N("[DEBUG]Mode 8.");
-    _timer = millis();
-    randomSeed(_timer);
-    forever {
-        yield();
-        _strip.fill(random(32768));
-        _strip.show();
-        _checkUpdates();
-        if (_isNewData) return;
-    }
-}
-
-
-int Strip_Control::_randgen(int term) {
-    if (term == 1) {
-        int min = 10, max = 92;
-        return (random(min, max) * _brightness);
-    } else if (term == 2) {
-        int min = 93, max = 174;
-        return (random(min, max) * _brightness);
-    } else if (term == 3) {
-        int min = 175, max = 256;
-        return (random(min, max) * _brightness);
-    }
-    return 0;
-}
-
-
-uint32_t Strip_Control::_wheel(byte WheelPos) {
-    WheelPos = 255 - WheelPos;
-    if (WheelPos < 85) {
-        return _strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-    }
-    if (WheelPos < 170) {
-        WheelPos -= 85;
-        return _strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-    }
-    WheelPos -= 170;
-    return _strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
 
@@ -1111,6 +829,11 @@ void loop() {
             }
         }
     #endif
-    Strip_Control SC;
-    SC.start();
+    NetworkHandler neth(link, cert);
+    StripControl strip(*led_count, &neth);
+
+    forever {
+        yield();
+        
+    }
 }
