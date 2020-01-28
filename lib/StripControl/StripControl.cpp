@@ -88,10 +88,6 @@ uint8_t HSB::getBrightness() {
     return _brightness;
 }
 
-uint32_t RGB::getPacked() {
-    return ((uint32_t)_red << 16) | ((uint32_t)_green <<  8) | _blue;
-}
-
 ///     RGB class
 
 //Constructor from separate parameters
@@ -103,6 +99,10 @@ RGB::RGB(const HSB &source) {
 }
 
 RGB::RGB(): _red(0), _green(0), _blue(0) {}
+
+RGB::RGB(uint32_t packed) {
+    setPacked(packed);
+}
 
 void RGB::fromHSB(const HSB &source) {
     uint8_t part = (source._hue / 255) % 6;
@@ -157,6 +157,12 @@ void RGB::setColor(uint8_t r, uint8_t g, uint8_t b) {
     _blue = b;
 }
 
+void RGB::setPacked(uint32_t packed) {
+    _blue = packed & 0xFF;
+    _green = (packed >> 8) & 0xFF;
+    _red = (packed >> 16) & 0xFF;
+}
+
 uint8_t RGB::getRed() {
     return _red;
 }
@@ -169,6 +175,10 @@ uint8_t RGB::getBlue() {
     return _blue;
 }
 
+uint32_t RGB::getPacked() {
+    return ((uint32_t)_red << 16) | ((uint32_t)_green <<  8) | _blue;
+}
+
 ///     StripControl class
 
 StripControl::StripControl(uint16_t pixels, NetworkHandler* NH): _pixels(pixels), _NH(NH) {
@@ -177,12 +187,48 @@ StripControl::StripControl(uint16_t pixels, NetworkHandler* NH): _pixels(pixels)
     _strip.begin();
 }
 
+void StripControl::modeSelection() {
+    if (_NH->newDataStatus()) {
+        _responseParser.replaceSource(_NH->getResponse());
+    }
+}
+
 inline void StripControl::_checkUpdates(uint32_t latency) {
     if (millis() - _timer > CHECK_DELAY) {
         _NH->makeRequest();
         _timer = millis();
     } else {
         delay(latency);
+    }
+}
+
+void StripControl::_handleResponse() {
+    /** Data to parse:
+     * Mode, speed, shift, brightness - uint8_t
+     * Color - uint32_t
+     */
+    _responseParser.replaceSource(_NH->getResponse());
+    uint8_t temp_8bit;
+    uint32_t temp_32bit;
+    temp_8bit = _responseParser.parseUint<uint8_t>("mode");
+    if (!_responseParser.isErrorOccured()) {
+        _mode = temp_8bit;
+    }
+    temp_8bit = _responseParser.parseUint<uint8_t>("speed");
+    if (!_responseParser.isErrorOccured()) {
+        _speed = temp_8bit;
+    }
+    temp_8bit = _responseParser.parseUint<uint8_t>("shift");
+    if (!_responseParser.isErrorOccured()) {
+        _shift = temp_8bit;
+    }
+    temp_8bit = _responseParser.parseUint<uint8_t>("bright");
+    if (!_responseParser.isErrorOccured()) {
+        _brightness = temp_8bit;
+    }
+    temp_32bit = _responseParser.parseUint<uint32_t>("color");
+    if (!_responseParser.isErrorOccured()) {
+        _rgbColor.setPacked(temp_32bit);
     }
 }
 

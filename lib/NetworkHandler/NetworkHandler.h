@@ -20,9 +20,6 @@ private:
     int16_t _responseCode;
     String _response;
     String _newResponse;
-    uint8_t parseUint32(const char*, uint32_t*, const char*);
-    uint8_t parseUint16(const char*, uint16_t*, const char*);
-    uint8_t parseUint8(const char*, uint8_t*, const char*);
 public:
     NetworkHandler(String, uint8_t*);
     void makeRequest();

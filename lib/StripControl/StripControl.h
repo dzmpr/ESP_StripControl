@@ -7,6 +7,7 @@
     #include <Arduino.h>
     #include <Adafruit_NeoPixel.h>
     #include "NetworkHandler.h"
+    #include "GETParser.h"
 
     class HSB;
     class RGB;
@@ -41,8 +42,10 @@
             RGB();
             RGB(const HSB&);
             RGB(uint8_t, uint8_t, uint8_t);
+            RGB(uint32_t);
             void fromHSB(const HSB&);
             void setColor(uint8_t, uint8_t, uint8_t);
+            void setPacked(uint32_t);
             uint8_t getRed();
             uint8_t getGreen();
             uint8_t getBlue();
@@ -59,6 +62,7 @@
             uint32_t _timer;
             uint16_t _pixels;
             NetworkHandler* _NH;
+            GETParser _responseParser;
             ///[Mode Parameters]
             uint8_t _mode = 1;
             uint8_t _speed = 255;
@@ -67,6 +71,7 @@
             RGB _rgbColor = RGB(1,1,1);
             HSB _hsbColor = HSB(StripControl::_rgbColor);
             inline void _checkUpdates(uint32_t);
+            void _handleResponse();
             ///[Modes]
             void _fill();
             void _dispersion();

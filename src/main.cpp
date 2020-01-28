@@ -6,12 +6,11 @@
 #include <ESP8266httpUpdate.h>
 #include "NetworkHandler.h"
 //  Strip handling
-#include <Adafruit_NeoPixel.h>
 #include "StripControl.h"
 //  Status led control
-#include <RGB_LED.h>
+#include "RGB_LED.h"
 //  EEPROM
-#include <NVSettings.h>
+#include "NVSettings.h"
 //  DNS Server
 #include <DNSServer.h>
 
@@ -834,6 +833,6 @@ void loop() {
 
     forever {
         yield();
-        
+
     }
 }

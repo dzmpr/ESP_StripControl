@@ -7,7 +7,7 @@
 
 #include "NetworkHandler.h"
 
-#ifndef DEBUG_NM
+#ifndef DEBUG_NH
     #define DEBUG_N(x)
     #define DEBUG_S(x)
 #else
@@ -19,7 +19,7 @@ NetworkHandler::NetworkHandler(String url, uint8_t* certificate) {
     _url = url;
     _client.setFingerprint(certificate);
     _https.setReuse(true);
-    _https.setUserAgent(""); //TODO:
+    _https.setUserAgent("Light_" + String(ESP.getChipId()));
     _https.begin(_client, _url);
 }
 
