@@ -6,12 +6,14 @@
 #define GETParser_h
     #include <Arduino.h>
 
-    #ifndef DEBUG_GP
-        #define DEBUG_N(x)
-        #define DEBUG_S(x)
+    #ifndef DEBUG_BUILD
+        #define DEBUG(...)
+        #define DEBUG_S(...)
+        #define DEBUG_F(...)
     #else
-        #define DEBUG_N(x) Serial.println(x);
-        #define DEBUG_S(x) Serial.print(x);
+        #define DEBUG(...) Serial.println(__VA_ARGS__);
+        #define DEBUG_S(...) Serial.print(__VA_ARGS__);
+        #define DEBUG_F(...) Serial.printf(__VA_ARGS__);
     #endif
 
     class GETParser {
@@ -20,10 +22,6 @@
         const char* _targetPtr;
         bool _parseError = false;
     public:
-        GETParser(String target): _target(target) {
-            _targetPtr = _target.c_str();
-        };
-
         template <typename T>
         T parseUint(const char*);
 
@@ -33,7 +31,6 @@
 
         bool isErrorOccured();
         String parseString(const char*);
-        uint8_t parseHexByte(char*);
     };
 
     template <typename T>
@@ -46,11 +43,11 @@
         eq = strstr(ptr, "=");
         if (eq != nullptr && atol(eq+1) != 0) {
             dest = atol(eq+1);
-            DEBUG_N("[DEBUG]Parsed "+ String(key) +" as: " + String(dest));
+            DEBUG("[PARSER]Parsed "+ String(key) +" as \"" + String(dest) + "\"");
             return dest;
         }
     }
-    DEBUG_N("[DEBUG]Parsing"+ String(key) +"error. Wrong request.");
+    DEBUG("[PARSER]Parsing key \"" + String(key) + "\"error. Wrong request.");
     _parseError = true;
     return 0;
 }

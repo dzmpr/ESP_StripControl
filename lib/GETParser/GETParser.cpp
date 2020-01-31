@@ -36,31 +36,16 @@ String GETParser::parseString(const char* key) {
         }
         if (eq != nullptr && amp != nullptr) {
             result = _target.substring(strlen(_targetPtr) - strlen(eq+1),strlen(_targetPtr) - strlen(amp));
-            DEBUG_N("[DEBUG]Parsed " + String(key) + " as: " + result);
+            DEBUG("[PARSER]Parsed " + String(key) + " as \"" + result + "\"");
             return result;
         } else if (eq != nullptr) {
             result = _target.substring(strlen(_targetPtr) - strlen(eq+1),strlen(_targetPtr));
-            DEBUG_N("[DEBUG]Parsed " + String(key) + " as: " + result);
+            DEBUG("[PARSER]Parsed " + String(key) + " as \"" + result + "\"");
             return result;
         }
     }
-    DEBUG_N("[DEBUG]Parsing " + String(key) + " error. Wrong request.");
+    DEBUG("[PARSER]Parsing \"" + String(key) + "\" error. Wrong request.");
     _parseError = true;
     return result;
 }
 
-uint8_t GETParser::parseHexByte(char* hexnum) {
-    _parseError = false;
-    uint8_t result = 0;
-    for (uint8_t i = 0; i < 2; i++) {
-        uint8_t num = *(hexnum+i) - '0';
-        if (num > 16 && num < 23) {
-            result += (num-7) << 4*(1-i);
-            continue;
-        }
-        if (num < 10) {
-            result += num << 4*(1-i);
-        }
-    }
-    return result;
-}

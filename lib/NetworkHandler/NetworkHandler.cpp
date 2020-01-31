@@ -7,14 +7,6 @@
 
 #include "NetworkHandler.h"
 
-#ifndef DEBUG_NH
-    #define DEBUG_N(x)
-    #define DEBUG_S(x)
-#else
-    #define DEBUG_N(x) Serial.println(x);
-    #define DEBUG_S(x) Serial.print(x);
-#endif
-
 NetworkHandler::NetworkHandler(String url, uint8_t* certificate) {
     _url = url;
     _client.setFingerprint(certificate);
@@ -25,11 +17,11 @@ NetworkHandler::NetworkHandler(String url, uint8_t* certificate) {
 
 void NetworkHandler::makeRequest() {
     _responseCode = _https.GET();
-    DEBUG_N("[DEBUG]Request sent.");
+    DEBUG("[DEBUG]Request sent.");
     if (_responseCode == 200) {//Request succeed 
         _newResponse = _https.getString();//Save response
-        DEBUG_N("[DEBUG]Old response: " + _response);
-        DEBUG_N("[DEBUG]New response: " + _newResponse);
+        DEBUG("[DEBUG]Old response: " + _response);
+        DEBUG("[DEBUG]New response: " + _newResponse);
         if (_response == _newResponse) {
             return;
         } else {//When new data retrieved
@@ -41,8 +33,13 @@ void NetworkHandler::makeRequest() {
     _isNewData = false;
     _errorCounter++;
     DEBUG_S("[DEBUG]Request error. Response code: ");
-    DEBUG_N(_responseCode);
+    DEBUG(_responseCode);
     return;
+}
+
+void NetworkHandler::changeURL(String url) {
+    _url = url;
+    _https.setURL(_url);
 }
 
 inline bool NetworkHandler::newDataStatus() {

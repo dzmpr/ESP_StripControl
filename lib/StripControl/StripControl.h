@@ -9,6 +9,16 @@
     #include "NetworkHandler.h"
     #include "GETParser.h"
 
+    #ifndef DEBUG_BUILD
+        #define DEBUG(...)
+        #define DEBUG_S(...)
+        #define DEBUG_F(...)
+    #else
+        #define DEBUG(...) Serial.println(__VA_ARGS__);
+        #define DEBUG_S(...) Serial.print(__VA_ARGS__);
+        #define DEBUG_F(...) Serial.printf(__VA_ARGS__);
+    #endif
+
     class HSB;
     class RGB;
 

@@ -185,6 +185,9 @@ StripControl::StripControl(uint16_t pixels, NetworkHandler* NH): _pixels(pixels)
     _strip.updateLength(_pixels);
     _strip.setBrightness(255);
     _strip.begin();
+    //TODO: test
+    _strip.fill(65793);
+    _strip.show();
 }
 
 void StripControl::modeSelection() {
