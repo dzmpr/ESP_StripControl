@@ -16,23 +16,24 @@ NetworkHandler::NetworkHandler(String url, uint8_t* certificate) {
 }
 
 void NetworkHandler::makeRequest() {
-    _responseCode = _https.GET();
-    DEBUG("[DEBUG]Request sent.");
-    if (_responseCode == 200) {//Request succeed 
+    _responseCode = _https.GET();//Make request, get result code
+    DEBUG("[NETWORK]Request sent.");
+    if (_responseCode == 200) {//Request succeed
         _newResponse = _https.getString();//Save response
-        DEBUG("[DEBUG]Old response: " + _response);
-        DEBUG("[DEBUG]New response: " + _newResponse);
+        DEBUG("[NETWORK]Response: " + _newResponse);
         if (_response == _newResponse) {
             return;
         } else {//When new data retrieved
+            DEBUG("[NETWORK]Old response: " + _response);
             _response = _newResponse;//Replace old data
             _isNewData = true;//Mark that new data got
             return;
         }
     }
-    _isNewData = false;
-    _errorCounter++;
-    DEBUG_S("[DEBUG]Request error. Response code: ");
+    //Error case
+    _isNewData = false;//Mark that new data isn't retrieved
+    _errorCounter++;//Increase error counter
+    DEBUG_S("[NETWORK]Request error. Response code: ");
     DEBUG(_responseCode);
     return;
 }
@@ -42,8 +43,8 @@ void NetworkHandler::changeURL(String url) {
     _https.setURL(_url);
 }
 
-inline bool NetworkHandler::newDataStatus() {
-    return _isNewData;
+uint16_t NetworkHandler::getErrorCount() {
+    return _errorCounter;
 }
 
 String NetworkHandler::getResponse() {

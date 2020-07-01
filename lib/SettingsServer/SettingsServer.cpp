@@ -259,30 +259,36 @@ uint8_t parseConfiguration(String* response, configuration* deviceConfig) {
     GETParser parser(*response);
     String temp;
     uint8_t tempInt;
+    //Trying to parse Wi-Fi SSID
     temp = parser.parseString("ssid");
     if (!parser.isErrorOccured()) {
         temp.toCharArray(&(deviceConfig->ssid[0]), SSID_SIZE);
         parsedItems++;
     }
+    //Trying to parse Wi-Fi password
     temp = parser.parseString("pass");
     if (!parser.isErrorOccured()) {
         temp.toCharArray(&(deviceConfig->pass[0]), PASS_SIZE);
         parsedItems++;
     }
+    //Trying to parse API link
     temp = parser.parseString("link");
     if (!parser.isErrorOccured()) {
         temp.toCharArray(&(deviceConfig->link[0]), LINK_SIZE);
         parsedItems++;
     }
+    //Trying to parse device token
     temp = parser.parseString("token");
     if (!parser.isErrorOccured()) {
         temp.toCharArray(&(deviceConfig->token[0]), TOKEN_SIZE);
         parsedItems++;
     }
+    //Trying to parse SSL certificate fingerprint
     temp = parser.parseString("cert");
     if (parseCertificate(const_cast<char*>(temp.c_str()), &(deviceConfig->certificate[0]))) {
         parsedItems++;
     }
+    //Trying to parse LED count
     tempInt = parser.parseUint<uint8_t>("led");
     if (!parser.isErrorOccured()) {
         deviceConfig->ledCount = tempInt;
@@ -299,10 +305,10 @@ void startServer(configuration* deviceConfig, bootConfiguration* marks, RGB_LED*
     }
     DNSServer dns;//DNS server object
     WiFiServer server(80);
-    WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP);//Set Wi-Fi mode to access point
     WiFi.softAP("Light_" + String(ESP.getChipId()), AP_PASS);
     WiFi.softAPConfig(AP_STATIC);
-    DEBUG_S("[DEBUG]AP started at: http://");
+    DEBUG_S("[APSERVER]AP started at: http://");
     DEBUG(WiFi.softAPIP());
     dns.setTTL(60);
     dns.setErrorReplyCode(DNSReplyCode::ServerFailure);
@@ -319,26 +325,30 @@ void startServer(configuration* deviceConfig, bootConfiguration* marks, RGB_LED*
             request = AP_client.readStringUntil('\r');
             AP_client.flush();
             req = request.c_str();
-            DEBUG("[DEBUG]Client connected.");
-            DEBUG("[DEBUG]Client request:\n" + request);
+            DEBUG("[APSERVER]Client connected.");
+            DEBUG("[APSERVER]Client request:\n" + request);
             if (strstr(req, "GET /config") != nullptr) {
-                DEBUG("[DEBUG]Config data recieved.");
+                DEBUG("[APSERVER]Config data recieved. Start parsing.");
                 AP_client.print(header_text);
                 AP_client.print("OK");
                 if (parseConfiguration(&request, deviceConfig)) {
                     marks->isSetup = 0;
+                    marks->isCertError = 0;
+                    marks->isHttpError = 0;
+                    marks->isWifiError = 0;
                 }
             } else if (strstr(req, "GET /restart") != nullptr) {
+                //TODO: restart -> exit
                 AP_client.print(header_text);
                 AP_client.print("OK");
                 running = false;
             } else if (strstr(req, "GET /update") != nullptr) {
                 AP_client.print(header_text);
                 AP_client.print("OK");
-                DEBUG("[DEBUG]Rise update flag.");
+                DEBUG("[APSERVER]Rise update flag.");
                 marks->isUpdate = 1;
             } else {
-                DEBUG("[DEBUG]Sending configuration page.");
+                DEBUG("[APSERVER]Sending configuration page.");
                 AP_client.print(header_html);
                 AP_client.print(page);
             }

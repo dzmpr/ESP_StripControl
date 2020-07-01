@@ -28,9 +28,6 @@
 #define AP_PASS "12341234"
 #define AP_STATIC IPAddress(1,1,1,1),IPAddress(1,1,1,0),IPAddress(255,255,255,0)
 
-// struct configuration;
-// struct bootConfiguration;
-
 //  Boot Configuration Structure
 struct bootConfiguration {
     uint8_t isConf:1;       //Enter setup once, will be descended after enter
@@ -45,17 +42,17 @@ struct bootConfiguration {
 
 
 struct configuration {
-    char ssid[SSID_SIZE];
-    char pass[PASS_SIZE];
-    char link[LINK_SIZE];
-    uint8_t certificate[20];
-    char token[TOKEN_SIZE];
-    uint8_t ledCount;
+    char ssid[SSID_SIZE];   //Wi-Fi SSID
+    char pass[PASS_SIZE];   //Wi-Fi password
+    char link[LINK_SIZE];   //API link
+    uint8_t certificate[20];//SSL certificate fingerprint
+    char token[TOKEN_SIZE]; //Device token
+    uint8_t ledCount;       //Quantity of LEDs
 };
 
-void startServer(configuration*, bootConfiguration*, RGB_LED*);
-uint8_t parseConfiguration(String* response, configuration*);
-uint8_t parseHexByte(char*);
-bool parseCertificate(char*, uint8_t*);
+void startServer(configuration*, bootConfiguration*, RGB_LED*); //Starting server and AP
+uint8_t parseConfiguration(String* response, configuration*);   //Parse response with device configuration
+uint8_t parseHexByte(char*);                                    //Parse one byte (HEX to DEC)
+bool parseCertificate(char*, uint8_t*);                         //Parse certificate
 
 #endif

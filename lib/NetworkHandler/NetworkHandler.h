@@ -23,22 +23,33 @@
 
 class NetworkHandler {
 private:
-    String _url;
+    String _url;//Endpoint address
     BearSSL::WiFiClientSecure _client;
     HTTPClient _https;
-    bool _isNewData = true;
+    bool _isNewData = true;//Is new data were got
     uint16_t _errorCounter = 0;
-    int16_t _responseCode;
-    String _response;
-    String _newResponse;
+    int16_t _responseCode;//Last request result
+    String _response;//Stored response
+    String _newResponse;//Buffer for new response
 public:
+    NetworkHandler() = delete;
     NetworkHandler(String, uint8_t*);
     void makeRequest();
-    void changeURL(String);
-    String getResponse();
-    int16_t getResponseCode();
-    inline bool newDataStatus();
-    void dataProcessed();
+    void changeURL(String);//Change endpoint address
+    String getResponse();//Get response data
+    int16_t getResponseCode();//Get response result
+    uint16_t getErrorCount();
+    void dataProcessed();//Mark data processed
+    inline bool isConnected();//Check connection
+    inline bool newDataStatus();//Get data status
 };
+
+inline bool NetworkHandler::isConnected() {
+    return _https.connected();
+}
+
+inline bool NetworkHandler::newDataStatus() {
+    return _isNewData;
+}
 
 #endif

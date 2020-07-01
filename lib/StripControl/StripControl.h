@@ -9,6 +9,8 @@
     #include "NetworkHandler.h"
     #include "GETParser.h"
 
+    #define CHECK_DELAY 2000 //Delay for checking updates
+
     #ifndef DEBUG_BUILD
         #define DEBUG(...)
         #define DEBUG_S(...)
@@ -30,16 +32,16 @@
             uint8_t _brightness;
         public:
             HSB();
-            HSB(const RGB&);
-            HSB(uint16_t, uint8_t, uint8_t);
-            void fromRGB(const RGB&);
-            void setColor(uint16_t, uint8_t, uint8_t);
-            void setBrightness(uint8_t);
-            void setNormalizedColor(uint16_t, uint8_t, uint8_t);
-            void cycleHue(uint16_t step = 1);
-            uint16_t getHue();
-            uint8_t getSaturation();
-            uint8_t getBrightness();
+            HSB(const RGB&);//Convert RGB to HSB
+            HSB(uint16_t, uint8_t, uint8_t);//Set all components
+            void fromRGB(const RGB&);//Convert RGB to HSB
+            void setColor(uint16_t, uint8_t, uint8_t);//Set components (2160,255,255)
+            void setBrightness(uint8_t);//Set brightness
+            void setNormalizedColor(uint16_t, uint8_t, uint8_t);//Set normalized color (360,255,255)
+            void cycleHue(uint16_t step = 1);//Change hue value
+            uint16_t getHue();//Get hue value
+            uint8_t getSaturation();//Get saturation value
+            uint8_t getBrightness();//Get brightness value
     };
 
     class RGB {
@@ -50,27 +52,28 @@
             uint8_t _blue;
         public:
             RGB();
-            RGB(const HSB&);
-            RGB(uint8_t, uint8_t, uint8_t);
-            RGB(uint32_t);
-            void fromHSB(const HSB&);
-            void setColor(uint8_t, uint8_t, uint8_t);
-            void setPacked(uint32_t);
-            uint8_t getRed();
-            uint8_t getGreen();
-            uint8_t getBlue();
-            uint32_t getPacked();
+            RGB(const HSB&);//Convert HSB to RGB
+            RGB(uint8_t, uint8_t, uint8_t);//Set all components
+            RGB(uint32_t);//Create from packed value
+            void fromHSB(const HSB&);//Convert HSB to RGB
+            void setColor(uint8_t, uint8_t, uint8_t);//Set all components
+            void setPacked(uint32_t);//Set from packed value
+            uint8_t getRed();//Get red component
+            uint8_t getGreen();//Get green component
+            uint8_t getBlue();//Get blue component
+            uint32_t getPacked();//Get packed value
     };
 
     class StripControl {
         public:
             StripControl(uint16_t, NetworkHandler*);
             void modeSelection();
+            inline void checkUpdates(uint32_t);
         private:
             ///[Service]
             Adafruit_NeoPixel _strip = Adafruit_NeoPixel(1,4,NEO_GRB + NEO_KHZ800);
-            uint32_t _timer;
-            uint16_t _pixels;
+            uint32_t _timer;//Updates checking timer
+            uint16_t _pixels;//Number of LEDs in strip
             NetworkHandler* _NH;
             GETParser _responseParser;
             ///[Mode Parameters]
@@ -80,11 +83,19 @@
             uint8_t _shift = 0;
             RGB _rgbColor = RGB(1,1,1);
             HSB _hsbColor = HSB(StripControl::_rgbColor);
-            inline void _checkUpdates(uint32_t);
-            void _handleResponse();
+            void _parseResponse();
             ///[Modes]
             void _fill();
             void _dispersion();
             void _shading();
     };
+
+    inline void StripControl::checkUpdates(uint32_t latency) {
+        if (millis() - _timer > CHECK_DELAY) {
+            _NH->makeRequest();
+            _timer = millis();
+        } else {
+            delay(latency);
+        }
+    }
  #endif

@@ -7,7 +7,6 @@
 #include <Adafruit_NeoPixel.h>
 #include "StripControl.h"
 
-#define CHECK_DELAY 2000
 #define forever for (;;)
 
 ///     HSB class
@@ -191,25 +190,36 @@ StripControl::StripControl(uint16_t pixels, NetworkHandler* NH): _pixels(pixels)
 }
 
 void StripControl::modeSelection() {
-    if (_NH->newDataStatus()) {
-        _responseParser.replaceSource(_NH->getResponse());
+    DEBUG("[STRIP]Select mode.");
+    _parseResponse();
+    DEBUG("[STRIP]Mode: " + String(_mode));
+    DEBUG("[STRIP]Speed: " + String(_speed));
+    DEBUG("[STRIP]Shift: " + String(_shift));
+    DEBUG("[STRIP]Brightness: " + String(_brightness));
+    switch (_mode) {
+        case 1: {
+            _fill();
+            break;
+        }
+        case 2: {
+            _dispersion();
+            break;
+        }
+        case 3: {
+            _shading();
+            break;
+        }
     }
 }
 
-inline void StripControl::_checkUpdates(uint32_t latency) {
-    if (millis() - _timer > CHECK_DELAY) {
-        _NH->makeRequest();
-        _timer = millis();
-    } else {
-        delay(latency);
-    }
-}
 
-void StripControl::_handleResponse() {
+
+void StripControl::_parseResponse() {
     /** Data to parse:
      * Mode, speed, shift, brightness - uint8_t
      * Color - uint32_t
      */
+    DEBUG("[STRIP]Getting new mode data.");
     _responseParser.replaceSource(_NH->getResponse());
     uint8_t temp_8bit;
     uint32_t temp_32bit;
@@ -233,6 +243,7 @@ void StripControl::_handleResponse() {
     if (!_responseParser.isErrorOccured()) {
         _rgbColor.setPacked(temp_32bit);
     }
+    _NH->dataProcessed();
 }
 
 ///[Modes]
@@ -242,6 +253,7 @@ void StripControl::_fill() {
     _strip.show();
 }
 
+//TODO: explain "magic formulas"
 void StripControl::_dispersion() {//TODO: finish
     uint32_t speed = 70 + 70*_speed/255;//TODO: variable latency mb needed
     uint16_t shiftedPixels = _pixels * _shift / 255;
@@ -265,7 +277,7 @@ void StripControl::_dispersion() {//TODO: finish
             }
             _strip.show();
             if (i == 0) _hsbColor.cycleHue(4);
-            _checkUpdates(speed);
+            checkUpdates(speed);
             if (_NH->newDataStatus()) return;
         }
     }
@@ -284,7 +296,7 @@ void StripControl::_shading() {
             _strip.show();
 
             // delay(20 + 50*_speed/255);
-            _checkUpdates(20 + 50*_speed/255);
+            checkUpdates(20 + 50*_speed/255);
             if (_NH->newDataStatus()) return;
         }
 
@@ -295,7 +307,7 @@ void StripControl::_shading() {
             _strip.show();
 
             // delay(20 + 50*_speed/255);
-            _checkUpdates(20 + 50*_speed/255);
+            checkUpdates(20 + 50*_speed/255);
             if (_NH->newDataStatus()) return;
         }
     }
