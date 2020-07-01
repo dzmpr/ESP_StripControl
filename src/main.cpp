@@ -15,14 +15,13 @@
 //Update handler
 #include "OTAUpdater.h"
 
-//TODO: Rewrite update on new core
 //TODO: Rewrite page to generate inputs by itself
 //TODO: Test network errors on new core
-//TODO: Comment code
-//TODO: Split SC class to SC class and web interface class
 //TODO: Add button
 //TODO: Implement flash data encryption
 //TODO: Move web settings page to SPIFFS
+//TODO: Wi-Fi error explanation
+//TODO: HTTP error explanation
 
 
 //  Defined for debug (Serial)
@@ -69,13 +68,6 @@
 #define LED_ADDR    (TOKEN_ADDR+TOKEN_SIZE+CS_SIZE)
 #define BCS_ADDR    (LED_ADDR+BYTE_SIZE+CS_SIZE)
 
-
-//  Strip configuration
-#define STRIP_PIN       4       //Pin where strip is connected (old 13)
-#define CHASE_TIMING    80      //Delay of chase mode
-#define TIMING          80      //Delay of rainbow mods
-#define FILL_REPEATS    2       //Number of fill repeats for avoid random lighting
-#define FADE_STEP       4       //Step for rising colors in fade mode
 
 //  Global variables
 NVSettings settings(ALLOCATED_EEPROM_SIZE);
@@ -128,68 +120,6 @@ inline void reboot() {
 // };
 
 
-// Strip_Control_deprecated::Strip_Control_deprecated() {
-//     //  Creating instance of strip class and configure brightness
-//     _strip.updateLength((uint16_t)(*(led_count)));
-//     _strip.setBrightness(255);
-//     _strip.begin();
-//     _strip.fill(_strip.Color(1,1,1)); //Fill all led's with low white color
-//     _strip.show();
-//     //  Setting up connection to the API
-//     String url = link;
-//     url += "/light_api/ans.php?rm=";
-//     url += token;
-//     DEBUG("[DEBUG]Final API request link:");
-//     DEBUG(url);
-//     _client.setFingerprint(cert);
-//     _https.setReuse(true);
-//     _https.setUserAgent(device_id.c_str());
-//     _https.begin(_client, url);
-//     //Make request to server for figure out is connection established
-//     DEBUG_S("[DEBUG]Attempting connect to API");
-//     do {//Check http connection to server
-//         _response_code = _https.GET();
-//         _error_counter++;
-//         if (_error_counter >= 10) {//Check is ereors exceeded limit
-//             DEBUG("\n[DEBUG]Connect to API failed.");
-//             if (_response_code == -1) {//Connection refused server response
-//                 marks.isCertError = 1;
-//             } else {
-//                 marks.isHttpError = 1;
-//             }
-//             marks.isConf = 1;
-//             settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
-//             reboot();
-//         }
-//         DEBUG_S(".");
-//         // FLUSH(); //FIXME: m-b not needed
-//         delay(750);//FIXME: check delay timings
-//     } while (!_https.connected());
-//     DEBUG("\n[DEBUG]Connect to API successful.");
-//     _error_counter = 0;
-//     //  Indicate that we ready to work with strip
-//     stateLED.led_set(LED_BLUE);
-// }
-
-
-// void Strip_Control_deprecated::start() {
-//     uint32_t loop_timer = 0;//FIXME: May be possibe use common timer
-//     forever {
-//         yield();
-//         if (loop_timer + POLLING_TIME < millis()) {
-//             if (_isNewData) {
-//                 loop_timer = millis();//FIXME: Simplify code
-//                 _parseData();
-//                 _modeSelect();
-//             } else {
-//                 loop_timer = millis();
-//             }
-//             _getData();
-//         }
-//     }
-// }
-
-
 void readSettings() {
     settings.readString(SSID_ADDR, SSID_SIZE, &(deviceConfig.ssid[0]));
     settings.readString(PASS_ADDR, PASS_SIZE, &(deviceConfig.pass[0]));
@@ -223,7 +153,7 @@ void setup() {
     #endif
     DEBUG(DEBUG_DELIMETER);
     DEBUG("[DEBUG]Basic device info:");
-    // DEBUG("[DEBUG]Sketch version: " + String(CURR_VER));
+    DEBUG("[DEBUG]Sketch version: " VERSION);
     DEBUG("[DEBUG]Device ID: " + String(ESP.getChipId()));
     DEBUG("[DEBUG]Core version: " + ESP.getCoreVersion());
     DEBUG("[DEBUG]SDK version: " + String(ESP.getSdkVersion()));
@@ -235,12 +165,17 @@ void setup() {
     DEBUG("[DEBUG]Sketch size: " + String(ESP.getSketchSize()));
     DEBUG("[DEBUG]Sketch MD5: " + String(ESP.getSketchMD5()));
     DEBUG(DEBUG_DELIMETER);
+
+
     readSettings();
+    DEBUG("[DEBUG]Boot state: " + String(*((uint8_t*)(&marks))));
     if (marks.isSetup || marks.isConf) {
         DEBUG("[DEBUG]Entering setup.");
         startServer(&deviceConfig, &marks, &stateLED);
         writeSettings();
     }
+
+
     DEBUG("[DEBUG]NV settings info:");
     DEBUG(String("[DEBUG]Network ssid: ") + deviceConfig.ssid);
     DEBUG(String("[DEBUG]Network password: ") + deviceConfig.pass);
@@ -251,6 +186,8 @@ void setup() {
     DEBUG(String("[DEBUG]API token: ") + deviceConfig.token);
     DEBUG(String("[DEBUG]LED count: ") + deviceConfig.ledCount);
     DEBUG(DEBUG_DELIMETER);
+
+
     WiFi.mode(WIFI_STA);
     if (WiFi.SSID() == deviceConfig.ssid) {
         DEBUG("[DEBUG]Reconnecting to last beacon: " + WiFi.SSID());
@@ -277,18 +214,21 @@ void setup() {
         }
     }
     DEBUG();
-    if (marks.isUpdate) {
+
+
+    if (marks.isUpdate) {//Update required
         DEBUG("[DEBUG]Update initialized.");
         BearSSL::WiFiClientSecure updateClient;
         updateClient.setFingerprint(&(deviceConfig.certificate[0]));
         if (OTAUpdate(String(deviceConfig.link), &updateClient, stateLED.get_pin(LED_BLUE))) {
             reboot();
         }
-    } else {
+    } else {//Update not required
         //TODO: deprecate when update will be fixed
         marks.isUpdate = 1;
         settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
     }
+
     stateLED.led_set(LED_GREEN);
 }
 
@@ -305,11 +245,41 @@ void loop() {
             }
         }
     #endif
-    NetworkHandler neth(deviceConfig.link, &(deviceConfig.certificate[0]));
-    StripControl strip(deviceConfig.ledCount, &neth);
 
+    String url = deviceConfig.link;
+    url += "/light_api/connection_test.php";
+    NetworkHandler networkHandler(url, &(deviceConfig.certificate[0]));
+
+    //Test connection to API FIXME: prettify
+    DEBUG("[DEBUG]Checking connection.");
+    do {
+        networkHandler.makeRequest();
+        if (networkHandler.getErrorCount() >= 5) {
+             if (networkHandler.getResponseCode() == -1) {//Connection refused server response
+                marks.isCertError = 1;
+            } else {
+                marks.isHttpError = 1;
+            }
+            marks.isConf = 1;
+            settings.writeByte(BCS_ADDR, (uint8_t*)(&marks));
+            reboot();
+        }
+    } while (!networkHandler.isConnected());
+    DEBUG("[DEBUG]Connected to API successfull.");
+
+    url = deviceConfig.link;
+    url += "/light_api/ans.php?rm=";
+    url += deviceConfig.token;
+    networkHandler.changeURL(url);
+
+    StripControl strip(deviceConfig.ledCount, &networkHandler);
+    DEBUG(millis());
     forever {
         yield();
-
+        if (networkHandler.newDataStatus()) {
+            strip.modeSelection();
+        } else {
+            strip.checkUpdates(2000);
+        }
     }
 }
