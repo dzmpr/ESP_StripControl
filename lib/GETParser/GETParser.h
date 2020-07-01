@@ -35,20 +35,22 @@
 
     template <typename T>
     T GETParser::parseUint(const char* key) {
-    _parseError = false;
-    char *ptr, *eq;
-    T dest = 0;
-    ptr = strstr(_targetPtr, key);
-    if (ptr != nullptr) {
-        eq = strstr(ptr, "=");
-        if (eq != nullptr && atol(eq+1) != 0) {
-            dest = atol(eq+1);
-            DEBUG("[PARSER]Parsed "+ String(key) +" as \"" + String(dest) + "\"");
-            return dest;
+        //TODO: do error check
+        _parseError = false;
+        char *ptr, *eq;
+        T dest = 0;
+        ptr = strstr(_targetPtr, key);//Check presence of target key
+        if (ptr != nullptr) {//Key present
+            eq = strstr(ptr, "=");//Get pointer to equal sign (start of value)
+            if (eq != nullptr && atol(eq+1) != 0) {//Pointer is valid and 
+                dest = atol(eq+1);
+                DEBUG("[PARSER]Parsed "+ String(key) +" as \"" + String(dest) + "\".");
+                return dest;
+            }
         }
+        DEBUG("[PARSER]Parsing key \"" + String(key) + "\" error.");
+        _parseError = true;
+        return 0;
     }
-    DEBUG("[PARSER]Parsing key \"" + String(key) + "\"error. Wrong request.");
-    _parseError = true;
-    return 0;
-}
+
 #endif
